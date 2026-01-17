@@ -20,31 +20,29 @@ class CambridgeDictionarySpider(scrapy.Spider):
             'url': response.url,
             'definitions': []
         }
-        
-        title = response.css('span.hw.dhw::text').get()
-        if title:
-            word_data['word'] = title.strip()
-        
-        pos_bodies = response.css('div.pos-body')
-        
-        for pos_body in pos_bodies:
-            def_blocks = pos_body.css('div.def-block.ddef_block')
-            
-            for def_block in def_blocks:
-                definition_data = {
-                    'level': def_block.css('span.epp-xref.dxref::text').get(),
-                    'definition': ''.join(def_block.css('div.def.ddef_d.db').xpath('.//text()').getall()).strip(),
-                    'examples': [
-                        ' '.join(''.join(text_parts).split()).replace('\"', '')
-                        for span in def_block.css('div.examp.dexamp span.eg.deg')
-                        if (text_parts := span.xpath('.//text()').getall())
-                    ]
-                }
 
-                if definition_data['definition'] is None or definition_data['examples'] is None:
-                    continue
-                
-                word_data['definitions'].append(definition_data)
+        selector = response.css('div.pos-body') or response.css('span.idiom-body')
+        
+        def_blocks = selector.css('div.def-block.ddef_block') if selector else []
+        
+        word_data['word'] = response.css('div.di-title *::text').get()
+        
+        # TODO: check css for all keys in definition_data
+        for def_block in def_blocks:
+            definition_data = {
+                'level': def_block.css('span.epp-xref.dxref::text').get(),
+                'definition': ''.join(def_block.css('div.def.ddef_d.db').xpath('.//text()').getall()).strip(),
+                'examples': [
+                    ' '.join(''.join(text_parts).split()).replace('\"', '')
+                    for span in def_block.css('div.examp.dexamp span.eg.deg')
+                    if (text_parts := span.xpath('.//text()').getall())
+                ]
+            }
+
+            if definition_data['definition'] is None or definition_data['examples'] is None:
+                continue
+            
+            word_data['definitions'].append(definition_data)
         
         word_data['definitions'].sort(key=lambda x: CEFR_LEVEL_ORDER.get(x['level'], float('inf')))
                 
