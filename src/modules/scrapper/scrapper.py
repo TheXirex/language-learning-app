@@ -31,32 +31,22 @@ class CambridgeDictionarySpider(scrapy.Spider):
             def_blocks = pos_body.css('div.def-block.ddef_block')
             
             for def_block in def_blocks:
-                level = def_block.css('span.epp-xref.dxref::text').get()
-                level_text = level.strip() if level else ''
-                
-                if not level_text:
+                definition_data = {
+                    'level': def_block.css('span.epp-xref.dxref::text').get(),
+                    'definition': ''.join(def_block.css('div.def.ddef_d.db').xpath('.//text()').getall()).strip(),
+                    'examples': [
+                        ' '.join(''.join(text_parts).split()).replace('\"', '')
+                        for span in def_block.css('div.examp.dexamp span.eg.deg')
+                        if (text_parts := span.xpath('.//text()').getall())
+                    ]
+                }
+
+                if definition_data['definition'] is None or definition_data['examples'] is None:
                     continue
-                
-                definition_data = {'level': level_text}
-                
-                definition_parts = def_block.css('div.def.ddef_d.db').xpath('.//text()').getall()
-                if definition_parts:
-                    definition_data['definition'] = ' '.join(''.join(definition_parts).split())
-                else:
-                    definition_data['definition'] = ''
-                
-                example_spans = def_block.css('div.examp.dexamp span.eg.deg')
-                examples = []
-                for span in example_spans:
-                    text_parts = span.xpath('.//text()').getall()
-                    if text_parts:
-                        full_text = ' '.join(''.join(text_parts).split())
-                        examples.append(full_text)
-                definition_data['examples'] = examples
                 
                 word_data['definitions'].append(definition_data)
         
-        word_data['definitions'].sort(key=lambda x: CEFR_LEVEL_ORDER.get(x['level']))
+        word_data['definitions'].sort(key=lambda x: CEFR_LEVEL_ORDER.get(x['level'], float('inf')))
                 
         yield word_data
 
@@ -80,11 +70,11 @@ def run_spider(word):
 
 
 if __name__ == "__main__":
-    test_words = 'hello'
+    test_words = 'hard'
     
     result = run_spider(test_words)
     
     word = result.get('word', 'unknown')
 
-    with open('result.json', 'w', encoding='utf-8') as f:
+    with open('output/result.json', 'w', encoding='utf-8') as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
