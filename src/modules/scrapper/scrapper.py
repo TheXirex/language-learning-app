@@ -1,24 +1,17 @@
+import json
 import scrapy
 from scrapy.crawler import CrawlerProcess
-import json
+
+from config import CEFR_LEVEL_ORDER, SCRAPPER_SETTINGS
 
 
 class CambridgeDictionarySpider(scrapy.Spider):
-    name = 'cambridge_spider'
     
-    custom_settings = {
-        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'ROBOTSTXT_OBEY': True,
-        'CONCURRENT_REQUESTS': 1,
-        'DOWNLOAD_DELAY': 1,
-    }
-    
-    def __init__(self, words='hello', *args, **kwargs):
-        super(CambridgeDictionarySpider, self).__init__(*args, **kwargs)
-        self.words = [w.strip() for w in words.split(',')]
+    def __init__(self, word: str):
+        super().__init__(name="cambridge_dictionary")
+        self.word = word
         self.start_urls = [
-            f"https://dictionary.cambridge.org/dictionary/english/{word.lower()}"
-            for word in self.words
+            f"https://dictionary.cambridge.org/dictionary/english/{word.lower().replace(' ', '-')}"
         ]
     
     def parse(self, response):
@@ -63,45 +56,35 @@ class CambridgeDictionarySpider(scrapy.Spider):
                 
                 word_data['definitions'].append(definition_data)
         
-        level_order = {'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6}
-        word_data['definitions'].sort(key=lambda x: level_order.get(x['level'], 99))
-        
-        self.log(f"Scraped {word_data['word']}: {len(word_data['definitions'])} definitions found")
-        
+        word_data['definitions'].sort(key=lambda x: CEFR_LEVEL_ORDER.get(x['level']))
+                
         yield word_data
 
 
-def run_spider(words):
-    results = []
+def run_spider(word):
+
+    result = dict()
     
-    class ResultCollectorPipeline:
-        def process_item(self, item, spider):
-            results.append(dict(item))
-            return item
+    def collect_item(item):
+        nonlocal result
+        result = dict(item)
     
-    process = CrawlerProcess(settings={
-        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'ROBOTSTXT_OBEY': True,
-        'ITEM_PIPELINES': {ResultCollectorPipeline: 300},
-        'LOG_LEVEL': 'INFO',
-    })
+    process = CrawlerProcess(settings=SCRAPPER_SETTINGS)
     
-    process.crawl(CambridgeDictionarySpider, words=words)
+    crawler = process.create_crawler(CambridgeDictionarySpider)
+    crawler.signals.connect(collect_item, signal=scrapy.signals.item_scraped)
+    process.crawl(crawler, word=word)
     process.start()
     
-    return results
+    return result
 
 
 if __name__ == "__main__":
-    test_words = 'hardweqfwqe'
+    test_words = 'hello'
     
-    results = run_spider(test_words)
+    result = run_spider(test_words)
     
-    for result in results:
-        word = result.get('word', 'unknown')
-        filename = f'{word}_scrapy.json'
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(result, f, indent=2, ensure_ascii=False)
-    
-    with open('cambridge_scrapy_all.json', 'w', encoding='utf-8') as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
+    word = result.get('word', 'unknown')
+
+    with open('result.json', 'w', encoding='utf-8') as f:
+        json.dump(result, f, indent=2, ensure_ascii=False)
