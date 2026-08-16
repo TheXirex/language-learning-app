@@ -1,4 +1,3 @@
-import json
 import scrapy
 from scrapy.crawler import CrawlerProcess
 
@@ -65,14 +64,3 @@ def run_spider(word):
     process.start()
     
     return result
-
-
-if __name__ == "__main__":
-    test_words = 'hard'
-    
-    result = run_spider(test_words)
-    
-    word = result.get('word', 'unknown')
-
-    with open('output/result.json', 'w', encoding='utf-8') as f:
-        json.dump(result, f, indent=2, ensure_ascii=False)
