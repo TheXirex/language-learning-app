@@ -20,28 +20,57 @@ class CambridgeDictionarySpider(scrapy.Spider):
             'definitions': []
         }
 
-        selector = response.css('div.pos-body') or response.css('span.idiom-body')
-        
-        def_blocks = selector.css('div.def-block.ddef_block') if selector else []
+        selector = response.css('div.pr.entry-body__el')
         
         word_data['word'] = response.css('div.di-title *::text').get()
         
         # TODO: check css for all keys in definition_data
-        for def_block in def_blocks:
-            definition_data = {
-                'level': def_block.css('span.epp-xref.dxref::text').get(),
-                'definition': ''.join(def_block.css('div.def.ddef_d.db').xpath('.//text()').getall()).strip(),
-                'examples': [
-                    ' '.join(''.join(text_parts).split()).replace('\"', '')
-                    for span in def_block.css('div.examp.dexamp span.eg.deg')
-                    if (text_parts := span.xpath('.//text()').getall())
-                ]
-            }
+        for dsense in response.css('div.dsense'):
 
-            if definition_data['definition'] is None or definition_data['examples'] is None:
-                continue
-            
-            word_data['definitions'].append(definition_data)
+            pos = dsense.css('span.pos.dsense_pos::text').get()
+            guideword = dsense.css('span.guideword.dsense_gw span::text').get() or dsense.css('span.guideword.dsense_gw::text').get()
+            if guideword:
+                guideword = guideword.strip().strip('()')
+
+            def_blocks = dsense.css('div.def-block.ddef_block')
+            for def_block in def_blocks:
+                definition_data = {
+                    'pos': pos,
+                    'guideword': guideword,
+                    'level': def_block.css('span.epp-xref.dxref::text').get(),
+                    'definition': ''.join(def_block.css('div.def.ddef_d.db').xpath('.//text()').getall()).strip(),
+                    'examples': [
+                        ' '.join(''.join(text_parts).split()).replace('\"', '')
+                        for span in def_block.css('div.examp.dexamp span.eg.deg')
+                        if (text_parts := span.xpath('.//text()').getall())
+                    ]
+                }
+
+                if definition_data['definition'] is None or definition_data['examples'] is None:
+                    continue
+                
+                word_data['definitions'].append(definition_data)
+        
+        # Fallback to old extraction if no dsense found
+        if not word_data['definitions']:
+            selector = response.css('div.pos-body') or response.css('span.idiom-body')
+            def_blocks = selector.css('div.def-block.ddef_block') if selector else []
+            for def_block in def_blocks:
+                definition_data = {
+                    'pos': None,
+                    'guideword': None,
+                    'level': def_block.css('span.epp-xref.dxref::text').get(),
+                    'definition': ''.join(def_block.css('div.def.ddef_d.db').xpath('.//text()').getall()).strip(),
+                    'examples': [
+                        ' '.join(''.join(text_parts).split()).replace('\"', '')
+                        for span in def_block.css('div.examp.dexamp span.eg.deg')
+                        if (text_parts := span.xpath('.//text()').getall())
+                    ]
+                }
+                if definition_data['definition'] is None or definition_data['examples'] is None:
+                    continue
+                word_data['definitions'].append(definition_data)
+
         
         word_data['definitions'].sort(key=lambda x: CEFR_LEVEL_ORDER.get(x['level'], float('inf')))
                 

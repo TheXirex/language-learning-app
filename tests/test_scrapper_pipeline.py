@@ -19,7 +19,10 @@ def test_word_extraction_pipeline(word: str, artifacts_dir: Path) -> None:
     for definition in result["definitions"]:
         assert "definition" in definition
         assert "examples" in definition
+        assert "pos" in definition
+        assert "guideword" in definition
         assert isinstance(definition["examples"], list)
+
 
     output_path = artifacts_dir / f"{word}.json"
     with output_path.open("w", encoding="utf-8") as file:
