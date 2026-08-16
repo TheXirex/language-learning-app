@@ -4,6 +4,8 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "scrapy==2.17.0",
+    "pymongo>=4.6.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [dependency-groups]
@@ -12,5 +14,5 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["src/modules/scrapper"]
+pythonpath = ["src"]
 testpaths = ["tests"]

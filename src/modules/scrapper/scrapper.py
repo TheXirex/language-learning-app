@@ -1,3 +1,4 @@
+import multiprocessing
 import scrapy
 from scrapy.crawler import CrawlerProcess
 
@@ -77,19 +78,27 @@ class CambridgeDictionarySpider(scrapy.Spider):
         yield word_data
 
 
-def run_spider(word):
-
+def _crawl_worker(word: str, queue) -> None:
     result = dict()
-    
+
     def collect_item(item):
         nonlocal result
         result = dict(item)
-    
+
     process = CrawlerProcess(settings=SCRAPPER_SETTINGS)
-    
     crawler = process.create_crawler(CambridgeDictionarySpider)
     crawler.signals.connect(collect_item, signal=scrapy.signals.item_scraped)
     process.crawl(crawler, word=word)
     process.start()
-    
+
+    queue.put(result)
+
+
+def run_spider(word: str) -> dict:
+    ctx = multiprocessing.get_context("spawn")
+    queue = ctx.Queue()
+    process = ctx.Process(target=_crawl_worker, args=(word, queue))
+    process.start()
+    result = queue.get()
+    process.join()
     return result

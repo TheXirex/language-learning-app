@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from scrapper import run_spider
+from modules.scrapper import run_spider
 from test_config import SCRAPPER
 
 
@@ -22,7 +22,6 @@ def test_word_extraction_pipeline(word: str, artifacts_dir: Path) -> None:
         assert "pos" in definition
         assert "guideword" in definition
         assert isinstance(definition["examples"], list)
-
 
     output_path = artifacts_dir / f"{word}.json"
     with output_path.open("w", encoding="utf-8") as file:

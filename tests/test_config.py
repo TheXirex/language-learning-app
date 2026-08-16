@@ -21,3 +21,9 @@ SCRAPPER = ModuleTestConfig(
     module_path=ROOT_DIR / "src" / "modules" / "scrapper",
     test_inputs=("hard",),
 )
+
+DB = ModuleTestConfig(
+    name="db",
+    module_path=ROOT_DIR / "src" / "modules" / "db",
+)
+
