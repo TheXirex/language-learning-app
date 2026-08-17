@@ -6,6 +6,7 @@ dependencies = [
     "scrapy==2.17.0",
     "pymongo>=4.6.0",
     "python-dotenv>=1.0.0",
+    "flet>=0.86.5",
 ]
 
 [dependency-groups]
