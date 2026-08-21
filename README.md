@@ -13,6 +13,12 @@ MONGODB_DB_NAME="language_learning"
 MONGODB_COLLECTION_NAME="words"
 ```
 
+## Running the App
+
+```cmd
+uv run flet run ui/app.py
+```
+
 ## Running Tests
 
 Run all tests:
