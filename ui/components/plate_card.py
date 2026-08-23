@@ -85,39 +85,17 @@ def build_plate_card_content(
         show_front = is_flipped
 
     if show_front:
-        # FRONT SIDE: Shows the target word prominently
+        # FRONT SIDE: Shows purely the target word prominently without level badges, tags, or link button
         return ft.Column(
             [
-                ft.Row(
-                    [
-                        ft.Row(badges, spacing=6),
-                        link_button,
-                    ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                ),
+                ft.Container(),
                 ft.Container(
-                    content=ft.Column(
-                        [
-                            ft.Text(
-                                word_str,
-                                size=36,
-                                weight=ft.FontWeight.BOLD,
-                                color=ft.Colors.INDIGO_900,
-                                text_align=ft.TextAlign.CENTER,
-                            ),
-                            ft.Container(
-                                content=ft.Text(
-                                    f"Guideword: {guideword}" if guideword else f"Part of Speech: {pos or 'word'}",
-                                    size=13,
-                                    color=ft.Colors.INDIGO_600,
-                                    italic=True,
-                                ),
-                                visible=bool(guideword or pos),
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.CENTER,
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                        spacing=6,
+                    content=ft.Text(
+                        word_str,
+                        size=38,
+                        weight=ft.FontWeight.BOLD,
+                        color=ft.Colors.INDIGO_900,
+                        text_align=ft.TextAlign.CENTER,
                     ),
                     alignment=ft.Alignment(0, 0),
                     expand=True,
@@ -125,7 +103,12 @@ def build_plate_card_content(
                 ft.Row(
                     [
                         ft.Icon(ft.Icons.TOUCH_APP_ROUNDED, size=15, color=ft.Colors.INDIGO_400),
-                        ft.Text("Click plate or press Space to reveal definition", size=12, color=ft.Colors.INDIGO_500, weight=ft.FontWeight.W_500),
+                        ft.Text(
+                            "Click plate to reveal definition",
+                            size=12,
+                            color=ft.Colors.INDIGO_500,
+                            weight=ft.FontWeight.W_500,
+                        ),
                     ],
                     alignment=ft.MainAxisAlignment.CENTER,
                     spacing=6,
@@ -195,8 +178,8 @@ def build_plate_card_content(
                 ),
                 ft.Row(
                     [
-                        ft.Icon(ft.Icons.FLIP_TO_FRONT_ROUNDED, size=15, color=ft.Colors.INDIGO_400),
-                        ft.Text("Click plate or press Space to flip back to word", size=12, color=ft.Colors.INDIGO_500, weight=ft.FontWeight.W_500),
+                        ft.Icon(ft.Icons.TOUCH_APP_ROUNDED, size=15, color=ft.Colors.INDIGO_400),
+                        ft.Text("Click plate to flip back to word", size=12, color=ft.Colors.INDIGO_500, weight=ft.FontWeight.W_500),
                     ],
                     alignment=ft.MainAxisAlignment.CENTER,
                     spacing=6,

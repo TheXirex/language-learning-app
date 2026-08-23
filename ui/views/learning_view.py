@@ -831,31 +831,6 @@ class LearningView:
                     alignment=ft.Alignment(0, 0),
                     expand=True,
                 ),
-
-                # Bottom control & shortcut helper bar
-                ft.Row(
-                    [
-                        ft.Button(
-                            content=ft.Row(
-                                [
-                                    ft.Icon(ft.Icons.FLIP_ROUNDED, size=18, color=ft.Colors.WHITE),
-                                    ft.Text("Flip Plate (Space)", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                                ],
-                                spacing=6,
-                            ),
-                            bgcolor=ft.Colors.INDIGO_700,
-                            on_click=lambda e: self.trigger_plate_flip(),
-                            height=40,
-                        ),
-                    ],
-                    alignment=ft.MainAxisAlignment.CENTER,
-                ),
-                ft.Row(
-                    [
-                        ft.Text("💡 Shortcuts: [←] Previous Plate   |   [Space] Flip Card   |   [→] Next Plate", size=11, color=ft.Colors.GREY_600, italic=True),
-                    ],
-                    alignment=ft.MainAxisAlignment.CENTER,
-                ),
             ],
             expand=True,
             spacing=10,

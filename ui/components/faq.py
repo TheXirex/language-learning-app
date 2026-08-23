@@ -6,61 +6,99 @@ import flet as ft
 
 
 def build_tag_faq() -> ft.Container:
-    """Build a compact, expandable Tag Guide / FAQ component for the top of the page."""
-    return ft.Container(
-        content=ft.ExpansionTile(
-            leading=ft.Icon(ft.Icons.HELP_OUTLINE, color=ft.Colors.INDIGO_700, size=18),
-            title=ft.Text("Tag Guide & FAQ", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.INDIGO_900),
-            subtitle=ft.Text("CEFR levels (A1-C2), Parts of Speech, and Guidewords", size=11, color=ft.Colors.GREY_700),
-            controls=[
-                ft.Container(
-                    content=ft.Column(
-                        [
-                            ft.Text("CEFR Language Levels:", size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
-                            ft.Row(
-                                [
-                                    ft.Container(content=ft.Text("A1", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.GREEN_700, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
-                                    ft.Text("Beginner", size=11, color=ft.Colors.GREY_800),
-                                    ft.Container(content=ft.Text("A2", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.GREEN_700, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
-                                    ft.Text("Elementary", size=11, color=ft.Colors.GREY_800),
-                                    ft.Container(content=ft.Text("B1", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.AMBER_800, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
-                                    ft.Text("Intermediate", size=11, color=ft.Colors.GREY_800),
-                                    ft.Container(content=ft.Text("B2", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.AMBER_800, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
-                                    ft.Text("Upper-Intermediate", size=11, color=ft.Colors.GREY_800),
-                                    ft.Container(content=ft.Text("C1", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.DEEP_PURPLE_600, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
-                                    ft.Text("Advanced", size=11, color=ft.Colors.GREY_800),
-                                    ft.Container(content=ft.Text("C2", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.DEEP_PURPLE_600, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
-                                    ft.Text("Proficiency", size=11, color=ft.Colors.GREY_800),
-                                ],
-                                wrap=True,
-                                spacing=8,
-                            ),
-                            ft.Divider(height=1, color=ft.Colors.INDIGO_100),
-                            ft.Text("Other Description Tags:", size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
-                            ft.Row(
-                                [
-                                    ft.Container(content=ft.Text("noun / verb / adj", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.BLUE_700, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
-                                    ft.Text("Part of Speech (POS) — grammatical category of the word", size=11, color=ft.Colors.GREY_800),
-                                ],
-                                wrap=True,
-                                spacing=6,
-                            ),
-                            ft.Row(
-                                [
-                                    ft.Container(content=ft.Text("guideword", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.TEAL_700, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
-                                    ft.Text("Guideword — Cambridge clue distinguishing specific meanings", size=11, color=ft.Colors.GREY_800),
-                                ],
-                                wrap=True,
-                                spacing=6,
-                            ),
-                        ],
-                        spacing=6,
-                    ),
-                    padding=ft.Padding.only(left=12, right=12, bottom=8),
-                )
+    """Build a compact, expandable Tag Guide / FAQ component without focus hijacking."""
+    is_expanded = False
+
+    guide_content = ft.Container(
+        content=ft.Column(
+            [
+                ft.Text("CEFR Language Levels:", size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
+                ft.Row(
+                    [
+                        ft.Container(content=ft.Text("A1", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.GREEN_700, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
+                        ft.Text("Beginner", size=11, color=ft.Colors.GREY_800),
+                        ft.Container(content=ft.Text("A2", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.GREEN_700, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
+                        ft.Text("Elementary", size=11, color=ft.Colors.GREY_800),
+                        ft.Container(content=ft.Text("B1", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.AMBER_800, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
+                        ft.Text("Intermediate", size=11, color=ft.Colors.GREY_800),
+                        ft.Container(content=ft.Text("B2", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.AMBER_800, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
+                        ft.Text("Upper-Intermediate", size=11, color=ft.Colors.GREY_800),
+                        ft.Container(content=ft.Text("C1", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.DEEP_PURPLE_600, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
+                        ft.Text("Advanced", size=11, color=ft.Colors.GREY_800),
+                        ft.Container(content=ft.Text("C2", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.DEEP_PURPLE_600, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
+                        ft.Text("Proficiency", size=11, color=ft.Colors.GREY_800),
+                    ],
+                    wrap=True,
+                    spacing=8,
+                ),
+                ft.Divider(height=1, color=ft.Colors.INDIGO_100),
+                ft.Text("Other Description Tags:", size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
+                ft.Row(
+                    [
+                        ft.Container(content=ft.Text("noun / verb / adj", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.BLUE_700, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
+                        ft.Text("Part of Speech (POS) — grammatical category of the word", size=11, color=ft.Colors.GREY_800),
+                    ],
+                    wrap=True,
+                    spacing=6,
+                ),
+                ft.Row(
+                    [
+                        ft.Container(content=ft.Text("guideword", color=ft.Colors.WHITE, size=11, weight=ft.FontWeight.BOLD), bgcolor=ft.Colors.TEAL_700, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=4),
+                        ft.Text("Guideword — Cambridge clue distinguishing specific meanings", size=11, color=ft.Colors.GREY_800),
+                    ],
+                    wrap=True,
+                    spacing=6,
+                ),
             ],
-            dense=True,
-            tile_padding=ft.Padding.symmetric(horizontal=10, vertical=0),
+            spacing=6,
+        ),
+        padding=ft.Padding.only(left=12, right=12, bottom=10, top=4),
+        visible=False,
+    )
+
+    toggle_icon = ft.Icon(ft.Icons.KEYBOARD_ARROW_DOWN, color=ft.Colors.INDIGO_700, size=20)
+
+    def toggle_faq(e):
+        nonlocal is_expanded
+        is_expanded = not is_expanded
+        guide_content.visible = is_expanded
+        toggle_icon.name = ft.Icons.KEYBOARD_ARROW_UP if is_expanded else ft.Icons.KEYBOARD_ARROW_DOWN
+        if e.control.page:
+            e.control.page.update()
+
+    header_row = ft.Container(
+        content=ft.Row(
+            [
+                ft.Row(
+                    [
+                        ft.Icon(ft.Icons.HELP_OUTLINE, color=ft.Colors.INDIGO_700, size=18),
+                        ft.Column(
+                            [
+                                ft.Text("Tag Guide & FAQ", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.INDIGO_900),
+                                ft.Text("CEFR levels (A1-C2), Parts of Speech, and Guidewords", size=11, color=ft.Colors.GREY_700),
+                            ],
+                            spacing=1,
+                        ),
+                    ],
+                    spacing=8,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                toggle_icon,
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        ),
+        padding=ft.Padding.symmetric(horizontal=12, vertical=8),
+        on_click=toggle_faq,
+    )
+
+    return ft.Container(
+        content=ft.Column(
+            [
+                header_row,
+                guide_content,
+            ],
+            spacing=0,
         ),
         border=ft.Border.all(1, ft.Colors.INDIGO_100),
         border_radius=8,
