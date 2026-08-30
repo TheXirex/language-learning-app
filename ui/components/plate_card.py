@@ -26,7 +26,7 @@ def build_plate_card_content(
     study_mode: str = "word_to_def",
 ) -> ft.Control:
     """
-    Build the inner content of a learning plate (Quizlet flashcard),
+    Build the inner content of a flashcard,
     rendering either the front or back based on is_flipped and study_mode.
     """
     word_str = word_data.get("word", "")

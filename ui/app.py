@@ -84,14 +84,14 @@ def main(page: ft.Page):
     # Custom Non-Focusable Segmented Tab Navigation Bar
     # (Prevents Flutter native TabBar from stealing Arrow Keys during study)
     # -----------------------------------------------------------------------
-    tab_titles = ["Search & Add", "Dictionary", "Learning (Plates)"]
+    tab_titles = ["Search & Add", "Dictionary", "Flashcards"]
     tab_icons = [ft.Icons.SEARCH, ft.Icons.MENU_BOOK, ft.Icons.STYLE]
 
     dict_counter_text = ft.Text("Dictionary", size=13, weight=ft.FontWeight.W_500)
     tab_label_controls = [
         ft.Text("Search & Add", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
         dict_counter_text,
-        ft.Text("Learning (Plates)", size=13, weight=ft.FontWeight.W_500, color=ft.Colors.BLUE_GREY_800),
+        ft.Text("Flashcards", size=13, weight=ft.FontWeight.W_500, color=ft.Colors.BLUE_GREY_800),
     ]
 
     tab_icon_controls = [

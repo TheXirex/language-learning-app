@@ -1,5 +1,5 @@
 """
-Learning (Flashcard Plates) Tab View.
+Flashcards Tab View.
 """
 
 from __future__ import annotations
@@ -29,11 +29,10 @@ class LearningView:
         self.show_snack = show_snack or (lambda msg, col: None)
 
         # Learning Configuration State
-        self.all_levels_list = ["A1", "A2", "B1", "B2", "C1", "C2"]
-        self.selected_levels: Set[str] = set()       # Empty means all levels
-        self.selected_pos: Set[str] = set()          # Empty means all POS
-        self.selected_count_limit: Optional[int] = 10  # None means All
+        self.selected_levels: Set[str] = set()       # Empty or populated with selected levels
+        self.selected_pos: Set[str] = set()          # Empty or populated with selected POS
         self.study_mode: str = "word_to_def"         # "word_to_def" or "def_to_word"
+        self._initialized_filters: bool = False
 
         # Learning Session Active State
         self.learning_session_words: List[dict] = []
@@ -56,24 +55,49 @@ class LearningView:
         # Root container
         self.control = ft.Container(expand=True, padding=10)
 
-    # -----------------------------------------------------------------------
-    # Filtering & Tag Helpers
-    # -----------------------------------------------------------------------
+    def get_available_level_tags(self) -> List[str]:
+        """Extract all unique CEFR level tags present in cached dictionary words from DB."""
+        levels = set()
+        for w in self.get_saved_words():
+            for d in w.get("definitions", []):
+                lvl = (d.get("level") or "").strip().upper()
+                if lvl:
+                    levels.add(lvl)
+        cefr_order = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6}
+        return sorted(list(levels), key=lambda x: (cefr_order.get(x, 99), x))
+
     def get_available_pos_tags(self) -> List[str]:
-        """Extract all unique POS tags present in cached dictionary words."""
+        """Extract all unique POS tags present in cached dictionary words from DB."""
         tags = set()
         for w in self.get_saved_words():
             for d in w.get("definitions", []):
                 p = (d.get("pos") or "").strip().lower()
                 if p:
                     tags.add(p)
-        sorted_tags = sorted(list(tags))
-        return sorted_tags if sorted_tags else ["noun", "verb", "adjective", "adverb"]
+        return sorted(list(tags))
 
     def get_filtered_learning_words(self) -> List[dict]:
         """Filter words according to selected levels and POS categories."""
         saved_words = self.get_saved_words()
-        if not self.selected_levels and not self.selected_pos:
+        if not saved_words:
+            return []
+
+        available_levels = set(self.get_available_level_tags())
+        available_pos = set(self.get_available_pos_tags())
+
+        # If user explicitly unselected all levels or all POS
+        if available_levels and self.selected_levels is not None and len(self.selected_levels) == 0:
+            return []
+        if available_pos and self.selected_pos is not None and len(self.selected_pos) == 0:
+            return []
+
+        # Only apply level filtering if a strict subset of levels is selected
+        filter_by_level = bool(available_levels and self.selected_levels is not None and self.selected_levels != available_levels)
+
+        # Only apply POS filtering if a strict subset of POS is selected
+        filter_by_pos = bool(available_pos and self.selected_pos is not None and self.selected_pos != available_pos)
+
+        if not filter_by_level and not filter_by_pos:
             return list(saved_words)
 
         matched = []
@@ -82,7 +106,7 @@ class LearningView:
             if not defs:
                 continue
 
-            if self.selected_levels:
+            if filter_by_level:
                 has_level = any(
                     (d.get("level") or "").strip().upper() in self.selected_levels
                     for d in defs
@@ -90,7 +114,7 @@ class LearningView:
                 if not has_level:
                     continue
 
-            if self.selected_pos:
+            if filter_by_pos:
                 has_pos = any(
                     (d.get("pos") or "").strip().lower() in self.selected_pos
                     for d in defs
@@ -171,7 +195,7 @@ class LearningView:
             random.shuffle(self.learning_session_words)
             self.current_plate_idx = 0
             self.is_flipped = False
-            self.show_snack("Deck shuffled! Starting from plate 1.", ft.Colors.INDIGO_700)
+            self.show_snack("Deck shuffled! Starting from card 1.", ft.Colors.INDIGO_700)
             self.render_learning_view()
 
     def start_learning_session(self):
@@ -183,11 +207,7 @@ class LearningView:
 
         words_pool = list(matching)
         random.shuffle(words_pool)
-
-        if self.selected_count_limit is not None and self.selected_count_limit > 0:
-            self.learning_session_words = words_pool[: self.selected_count_limit]
-        else:
-            self.learning_session_words = words_pool
+        self.learning_session_words = words_pool
 
         self.current_plate_idx = 0
         self.is_flipped = False
@@ -230,7 +250,7 @@ class LearningView:
                         ft.Icon(ft.Icons.MENU_BOOK_ROUNDED, size=54, color=ft.Colors.INDIGO_300),
                         ft.Text("Your Dictionary is Empty", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.INDIGO_900),
                         ft.Text(
-                            "Search and save words in the 'Search & Add' tab to start learning with flashcard plates!",
+                            "Search and save words in the 'Search & Add' tab to start learning with flashcards!",
                             size=14,
                             color=ft.Colors.GREY_700,
                             text_align=ft.TextAlign.CENTER,
@@ -253,11 +273,6 @@ class LearningView:
             )
 
         # 1. Study Direction Selector
-        mode_w2d_icon = ft.Icon(
-            ft.Icons.ABC_ROUNDED if self.study_mode == "word_to_def" else ft.Icons.RADIO_BUTTON_UNCHECKED,
-            size=18,
-            color=ft.Colors.WHITE if self.study_mode == "word_to_def" else ft.Colors.BLUE_GREY_700,
-        )
         mode_w2d_text = ft.Text(
             "Word → Definition",
             color=ft.Colors.WHITE if self.study_mode == "word_to_def" else ft.Colors.BLUE_GREY_900,
@@ -265,19 +280,14 @@ class LearningView:
             weight=ft.FontWeight.BOLD,
         )
         mode_w2d_btn = ft.Container(
-            content=ft.Row([mode_w2d_icon, mode_w2d_text], spacing=6),
-            bgcolor=ft.Colors.INDIGO_700 if self.study_mode == "word_to_def" else ft.Colors.GREY_100,
-            border=ft.Border.all(1.5, ft.Colors.INDIGO_700 if self.study_mode == "word_to_def" else ft.Colors.GREY_300),
+            content=mode_w2d_text,
+            bgcolor=ft.Colors.INDIGO_700 if self.study_mode == "word_to_def" else ft.Colors.WHITE,
+            border=ft.Border.all(1.5 if self.study_mode == "word_to_def" else 1.0, ft.Colors.INDIGO_700 if self.study_mode == "word_to_def" else ft.Colors.GREY_300),
             border_radius=8,
             padding=ft.Padding.symmetric(horizontal=14, vertical=8),
             on_click=lambda e: set_study_mode("word_to_def"),
         )
 
-        mode_d2w_icon = ft.Icon(
-            ft.Icons.PSYCHOLOGY_ALT_ROUNDED if self.study_mode == "def_to_word" else ft.Icons.RADIO_BUTTON_UNCHECKED,
-            size=18,
-            color=ft.Colors.WHITE if self.study_mode == "def_to_word" else ft.Colors.BLUE_GREY_700,
-        )
         mode_d2w_text = ft.Text(
             "Definition → Word",
             color=ft.Colors.WHITE if self.study_mode == "def_to_word" else ft.Colors.BLUE_GREY_900,
@@ -285,9 +295,9 @@ class LearningView:
             weight=ft.FontWeight.BOLD,
         )
         mode_d2w_btn = ft.Container(
-            content=ft.Row([mode_d2w_icon, mode_d2w_text], spacing=6),
-            bgcolor=ft.Colors.INDIGO_700 if self.study_mode == "def_to_word" else ft.Colors.GREY_100,
-            border=ft.Border.all(1.5, ft.Colors.INDIGO_700 if self.study_mode == "def_to_word" else ft.Colors.GREY_300),
+            content=mode_d2w_text,
+            bgcolor=ft.Colors.INDIGO_700 if self.study_mode == "def_to_word" else ft.Colors.WHITE,
+            border=ft.Border.all(1.5 if self.study_mode == "def_to_word" else 1.0, ft.Colors.INDIGO_700 if self.study_mode == "def_to_word" else ft.Colors.GREY_300),
             border_radius=8,
             padding=ft.Padding.symmetric(horizontal=14, vertical=8),
             on_click=lambda e: set_study_mode("def_to_word"),
@@ -297,25 +307,76 @@ class LearningView:
             self.study_mode = mode
             is_w2d = mode == "word_to_def"
 
-            mode_w2d_btn.bgcolor = ft.Colors.INDIGO_700 if is_w2d else ft.Colors.GREY_100
-            mode_w2d_btn.border = ft.Border.all(1.5, ft.Colors.INDIGO_700 if is_w2d else ft.Colors.GREY_300)
-            mode_w2d_icon.name = ft.Icons.ABC_ROUNDED if is_w2d else ft.Icons.RADIO_BUTTON_UNCHECKED
-            mode_w2d_icon.color = ft.Colors.WHITE if is_w2d else ft.Colors.BLUE_GREY_700
+            mode_w2d_btn.bgcolor = ft.Colors.INDIGO_700 if is_w2d else ft.Colors.WHITE
+            mode_w2d_btn.border = ft.Border.all(1.5 if is_w2d else 1.0, ft.Colors.INDIGO_700 if is_w2d else ft.Colors.GREY_300)
             mode_w2d_text.color = ft.Colors.WHITE if is_w2d else ft.Colors.BLUE_GREY_900
 
-            mode_d2w_btn.bgcolor = ft.Colors.INDIGO_700 if not is_w2d else ft.Colors.GREY_100
-            mode_d2w_btn.border = ft.Border.all(1.5, ft.Colors.INDIGO_700 if not is_w2d else ft.Colors.GREY_300)
-            mode_d2w_icon.name = ft.Icons.PSYCHOLOGY_ALT_ROUNDED if not is_w2d else ft.Icons.RADIO_BUTTON_UNCHECKED
-            mode_d2w_icon.color = ft.Colors.WHITE if not is_w2d else ft.Colors.BLUE_GREY_700
+            mode_d2w_btn.bgcolor = ft.Colors.INDIGO_700 if not is_w2d else ft.Colors.WHITE
+            mode_d2w_btn.border = ft.Border.all(1.5 if not is_w2d else 1.0, ft.Colors.INDIGO_700 if not is_w2d else ft.Colors.GREY_300)
             mode_d2w_text.color = ft.Colors.WHITE if not is_w2d else ft.Colors.BLUE_GREY_900
 
             self.page.update()
 
-        # 2. CEFR Level Selectors
+        # 2. CEFR Level Selectors (Dynamically fetched from DB words)
+        available_levels = self.get_available_level_tags()
+        available_pos = self.get_available_pos_tags()
+
+        avail_lvl_set = set(available_levels)
+        avail_pos_set = set(available_pos)
+
+        if not self._initialized_filters:
+            self.selected_levels = set(avail_lvl_set)
+            self.selected_pos = set(avail_pos_set)
+            self._initialized_filters = True
+        else:
+            # If user had all levels selected previously (or levels was empty), select all currently available
+            if not hasattr(self, "_prev_avail_levels") or self.selected_levels == self._prev_avail_levels or not self.selected_levels:
+                self.selected_levels = set(avail_lvl_set)
+            else:
+                self.selected_levels = self.selected_levels.intersection(avail_lvl_set)
+
+            if not hasattr(self, "_prev_avail_pos") or self.selected_pos == self._prev_avail_pos or not self.selected_pos:
+                self.selected_pos = set(avail_pos_set)
+            else:
+                self.selected_pos = self.selected_pos.intersection(avail_pos_set)
+
+        self._prev_avail_levels = set(avail_lvl_set)
+        self._prev_avail_pos = set(avail_pos_set)
+
         level_chip_map: dict[str, ft.Container] = {}
         level_chips_row = ft.Row(wrap=True, spacing=8)
 
-        for lvl in self.all_levels_list:
+        # "All" chip for CEFR levels
+        def make_all_levels_click():
+            def on_click(e):
+                if self.selected_levels == set(available_levels):
+                    self.selected_levels.clear()
+                else:
+                    self.selected_levels = set(available_levels)
+                update_config_view_state()
+            return on_click
+
+        is_all_levels_sel = bool(available_levels and self.selected_levels == set(available_levels))
+        all_levels_chip = ft.Container(
+            content=ft.Text(
+                "All",
+                color=ft.Colors.WHITE if is_all_levels_sel else ft.Colors.BLUE_GREY_800,
+                size=11,
+                weight=ft.FontWeight.BOLD,
+                text_align=ft.TextAlign.CENTER,
+            ),
+            bgcolor=ft.Colors.INDIGO_700 if is_all_levels_sel else ft.Colors.WHITE,
+            border=ft.Border.all(1.5 if is_all_levels_sel else 1.0, ft.Colors.INDIGO_700 if is_all_levels_sel else ft.Colors.GREY_300),
+            border_radius=6,
+            height=28,
+            padding=ft.Padding.symmetric(horizontal=10, vertical=0),
+            alignment=ft.Alignment(0, 0),
+            tooltip="All Levels" + (" (Selected)" if is_all_levels_sel else ""),
+            on_click=make_all_levels_click(),
+        )
+        level_chips_row.controls.append(all_levels_chip)
+
+        for lvl in available_levels:
             is_sel = lvl in self.selected_levels
             badge_color = get_level_color(lvl)
 
@@ -348,19 +409,40 @@ class LearningView:
             level_chip_map[lvl] = chip_container
             level_chips_row.controls.append(chip_container)
 
-        def select_all_levels(e):
-            self.selected_levels.clear()
-            self.selected_levels.update(self.all_levels_list)
-            update_config_view_state()
 
-        def clear_levels(e):
-            self.selected_levels.clear()
-            update_config_view_state()
-
-        # 3. Part of Speech Filter Chips
-        available_pos = self.get_available_pos_tags()
+        # 3. Part of Speech Filter Chips (Dynamically fetched from DB words)
         pos_chip_map: dict[str, ft.Container] = {}
         pos_chips_row = ft.Row(wrap=True, spacing=8)
+
+        # "All" chip for POS
+        def make_all_pos_click():
+            def on_click(e):
+                if self.selected_pos == set(available_pos):
+                    self.selected_pos.clear()
+                else:
+                    self.selected_pos = set(available_pos)
+                update_config_view_state()
+            return on_click
+
+        is_all_pos_sel = bool(available_pos and self.selected_pos == set(available_pos))
+        all_pos_chip = ft.Container(
+            content=ft.Text(
+                "All",
+                color=ft.Colors.WHITE if is_all_pos_sel else ft.Colors.BLUE_GREY_800,
+                size=11,
+                weight=ft.FontWeight.BOLD,
+                text_align=ft.TextAlign.CENTER,
+            ),
+            bgcolor=ft.Colors.INDIGO_700 if is_all_pos_sel else ft.Colors.WHITE,
+            border=ft.Border.all(1.5 if is_all_pos_sel else 1.0, ft.Colors.INDIGO_700 if is_all_pos_sel else ft.Colors.GREY_300),
+            border_radius=6,
+            height=28,
+            padding=ft.Padding.symmetric(horizontal=10, vertical=0),
+            alignment=ft.Alignment(0, 0),
+            tooltip="All Parts of Speech" + (" (Selected)" if is_all_pos_sel else ""),
+            on_click=make_all_pos_click(),
+        )
+        pos_chips_row.controls.append(all_pos_chip)
 
         for pos_tag in available_pos:
             is_sel = pos_tag in self.selected_pos
@@ -374,42 +456,32 @@ class LearningView:
                     update_config_view_state()
                 return on_click
 
+            pos_color = ft.Colors.INDIGO_700
             p_container = ft.Container(
-                content=ft.Row(
-                    [
-                        ft.Icon(ft.Icons.CHECK, size=14, color=ft.Colors.WHITE, visible=is_sel),
-                        ft.Text(pos_tag, color=ft.Colors.WHITE if is_sel else ft.Colors.BLUE_GREY_900, size=12, weight=ft.FontWeight.W_600),
-                    ],
-                    spacing=4,
-                    alignment=ft.MainAxisAlignment.CENTER,
+                content=ft.Text(
+                    pos_tag,
+                    color=ft.Colors.WHITE if is_sel else ft.Colors.BLUE_GREY_800,
+                    size=11,
+                    weight=ft.FontWeight.BOLD,
+                    text_align=ft.TextAlign.CENTER,
                 ),
-                bgcolor=ft.Colors.BLUE_700 if is_sel else ft.Colors.GREY_100,
-                border=ft.Border.all(1.5, ft.Colors.BLUE_700 if is_sel else ft.Colors.GREY_300),
-                border_radius=8,
-                padding=ft.Padding.symmetric(horizontal=12, vertical=6),
+                bgcolor=pos_color if is_sel else ft.Colors.WHITE,
+                border=ft.Border.all(1.5 if is_sel else 1.0, pos_color if is_sel else ft.Colors.GREY_300),
+                border_radius=6,
+                height=28,
+                padding=ft.Padding.symmetric(horizontal=10, vertical=0),
+                alignment=ft.Alignment(0, 0),
+                tooltip=f"POS: {pos_tag}" + (" (Selected)" if is_sel else ""),
                 on_click=make_pos_click(),
             )
             pos_chip_map[pos_tag] = p_container
             pos_chips_row.controls.append(p_container)
 
-        def select_all_pos(e):
-            self.selected_pos.clear()
-            self.selected_pos.update(available_pos)
-            update_config_view_state()
 
-        def clear_pos(e):
-            self.selected_pos.clear()
-            update_config_view_state()
-
-        # 4. Adaptive Word Count Presets Row
-        count_chips_row = ft.Row(wrap=True, spacing=6)
-
-        # 5. Live Summary Banner & Start Button
-        summary_banner_container = ft.Container()
-
+        # Start Button
         start_btn_icon = ft.Icon(ft.Icons.PLAY_ARROW_ROUNDED, color=ft.Colors.WHITE, size=22)
         start_btn_label = ft.Text(
-            "Start Learning Session",
+            "Start Flashcards",
             size=15,
             weight=ft.FontWeight.BOLD,
             color=ft.Colors.WHITE,
@@ -426,105 +498,18 @@ class LearningView:
             height=46,
         )
 
-        def build_summary_banner(matched_list: list[dict], matching_cnt: int, eff_cnt: int) -> ft.Control:
-            if matching_cnt > 0:
-                preview_chips = []
-                for w in matched_list[:8]:
-                    preview_chips.append(
-                        ft.Container(
-                            content=ft.Text(w.get("word", ""), size=11, color=ft.Colors.INDIGO_900, weight=ft.FontWeight.W_500),
-                            bgcolor=ft.Colors.INDIGO_50,
-                            border=ft.Border.all(1, ft.Colors.INDIGO_200),
-                            padding=ft.Padding.symmetric(horizontal=8, vertical=2),
-                            border_radius=12,
-                        )
-                    )
-                if matching_cnt > 8:
-                    preview_chips.append(
-                        ft.Text(f"+ {matching_cnt - 8} more", size=11, color=ft.Colors.INDIGO_600, italic=True)
-                    )
-
-                return ft.Container(
-                    content=ft.Column(
-                        [
-                            ft.Row(
-                                [
-                                    ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, color=ft.Colors.GREEN_700, size=22),
-                                    ft.Column(
-                                        [
-                                            ft.Text(
-                                                f"Selected {matching_cnt} of {total_dict_count} words from your dictionary",
-                                                weight=ft.FontWeight.BOLD,
-                                                size=14,
-                                                color=ft.Colors.GREEN_900,
-                                            ),
-                                            ft.Text(
-                                                f"Session will practice {eff_cnt} words (Shuffled)",
-                                                size=12,
-                                                color=ft.Colors.GREEN_800,
-                                            ),
-                                        ],
-                                        spacing=2,
-                                        expand=True,
-                                    ),
-                                ],
-                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                                spacing=10,
-                            ),
-                            ft.Divider(height=1, color=ft.Colors.GREEN_200),
-                            ft.Row(
-                                [
-                                    ft.Text("Included words preview:", size=11, color=ft.Colors.GREY_700, weight=ft.FontWeight.BOLD),
-                                    ft.Row(preview_chips, wrap=True, spacing=4, expand=True),
-                                ],
-                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                            ),
-                        ],
-                        spacing=8,
-                    ),
-                    padding=14,
-                    bgcolor=ft.Colors.GREEN_50,
-                    border=ft.Border.all(1.5, ft.Colors.GREEN_300),
-                    border_radius=10,
-                )
-            else:
-                return ft.Container(
-                    content=ft.Row(
-                        [
-                            ft.Icon(ft.Icons.INFO_OUTLINE_ROUNDED, color=ft.Colors.AMBER_900, size=22),
-                            ft.Column(
-                                [
-                                    ft.Text(
-                                        f"0 of {total_dict_count} words match the selected filters",
-                                        weight=ft.FontWeight.BOLD,
-                                        size=14,
-                                        color=ft.Colors.AMBER_900,
-                                    ),
-                                    ft.Text(
-                                        "Try clearing level or POS filters to include more words from your dictionary.",
-                                        size=12,
-                                        color=ft.Colors.AMBER_800,
-                                    ),
-                                ],
-                                spacing=2,
-                                expand=True,
-                            ),
-                        ],
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                        spacing=10,
-                    ),
-                    padding=14,
-                    bgcolor=ft.Colors.AMBER_50,
-                    border=ft.Border.all(1.5, ft.Colors.AMBER_300),
-                    border_radius=10,
-                )
-
         def update_config_view_state():
             """In-place update of interactive configuration elements."""
             matching_words = self.get_filtered_learning_words()
             matching_count = len(matching_words)
 
-            # 1. Update CEFR Level selectors
+            # 1. Update CEFR Level selectors + "All" chip
+            is_all_levels_active = bool(available_levels and self.selected_levels == set(available_levels))
+            all_levels_chip.bgcolor = ft.Colors.INDIGO_700 if is_all_levels_active else ft.Colors.WHITE
+            all_levels_chip.border = ft.Border.all(1.5 if is_all_levels_active else 1.0, ft.Colors.INDIGO_700 if is_all_levels_active else ft.Colors.GREY_300)
+            all_levels_chip.content.color = ft.Colors.WHITE if is_all_levels_active else ft.Colors.BLUE_GREY_800
+            all_levels_chip.tooltip = "All Levels" + (" (Selected)" if is_all_levels_active else "")
+
             for lvl, c in level_chip_map.items():
                 is_sel = lvl in self.selected_levels
                 badge_color = get_level_color(lvl)
@@ -534,64 +519,27 @@ class LearningView:
                 txt.color = ft.Colors.WHITE if is_sel else ft.Colors.BLUE_GREY_800
                 c.tooltip = f"Level {lvl}" + (" (Selected)" if is_sel else "")
 
-            # 2. Update POS chips
+            # 2. Update POS chips + "All" chip
+            is_all_pos_active = bool(available_pos and self.selected_pos == set(available_pos))
+            all_pos_chip.bgcolor = ft.Colors.INDIGO_700 if is_all_pos_active else ft.Colors.WHITE
+            all_pos_chip.border = ft.Border.all(1.5 if is_all_pos_active else 1.0, ft.Colors.INDIGO_700 if is_all_pos_active else ft.Colors.GREY_300)
+            all_pos_chip.content.color = ft.Colors.WHITE if is_all_pos_active else ft.Colors.BLUE_GREY_800
+            all_pos_chip.tooltip = "All Parts of Speech" + (" (Selected)" if is_all_pos_active else "")
+
             for pos_tag, c in pos_chip_map.items():
                 is_sel = pos_tag in self.selected_pos
-                c.bgcolor = ft.Colors.BLUE_700 if is_sel else ft.Colors.GREY_100
-                c.border = ft.Border.all(1.5, ft.Colors.BLUE_700 if is_sel else ft.Colors.GREY_300)
-                icon_ctrl = c.content.controls[0]
-                text_ctrl = c.content.controls[1]
-                icon_ctrl.visible = is_sel
-                text_ctrl.color = ft.Colors.WHITE if is_sel else ft.Colors.BLUE_GREY_900
+                pos_color = ft.Colors.INDIGO_700
+                c.bgcolor = pos_color if is_sel else ft.Colors.WHITE
+                c.border = ft.Border.all(1.5 if is_sel else 1.0, pos_color if is_sel else ft.Colors.GREY_300)
+                txt = c.content
+                txt.color = ft.Colors.WHITE if is_sel else ft.Colors.BLUE_GREY_800
+                c.tooltip = f"POS: {pos_tag}" + (" (Selected)" if is_sel else "")
 
-            # 3. Update Adaptive Word Count Presets
-            standard_steps = [5, 10, 15, 20, 30, 50, 100]
-            adaptive_steps = [step for step in standard_steps if step < matching_count]
-            count_options = [(step, str(step)) for step in adaptive_steps]
-            if matching_count > 0:
-                count_options.append((None, f"All ({matching_count})"))
-            else:
-                count_options.append((None, "0"))
-
-            valid_values = [opt[0] for opt in count_options]
-            if self.selected_count_limit not in valid_values:
-                self.selected_count_limit = None
-
-            effective_count = min(matching_count, self.selected_count_limit) if (self.selected_count_limit is not None and self.selected_count_limit > 0) else matching_count
-
-            count_chips_row.controls.clear()
-            for opt_val, opt_label in count_options:
-                is_sel = self.selected_count_limit == opt_val
-
-                def make_count_click(target_opt=opt_val):
-                    def on_click(e):
-                        self.selected_count_limit = target_opt
-                        update_config_view_state()
-                    return on_click
-
-                count_chips_row.controls.append(
-                    ft.Container(
-                        content=ft.Text(
-                            opt_label,
-                            color=ft.Colors.WHITE if is_sel else ft.Colors.BLUE_GREY_900,
-                            size=12,
-                            weight=ft.FontWeight.BOLD,
-                        ),
-                        bgcolor=ft.Colors.INDIGO_700 if is_sel else ft.Colors.GREY_100,
-                        border=ft.Border.all(1.5, ft.Colors.INDIGO_700 if is_sel else ft.Colors.GREY_300),
-                        border_radius=8,
-                        padding=ft.Padding.symmetric(horizontal=14, vertical=6),
-                        on_click=make_count_click(),
-                    )
-                )
-
-            # 4. Update Summary Banner
-            summary_banner_container.content = build_summary_banner(matching_words, matching_count, effective_count)
-
-            # 5. Update Start Button
+            # 3. Update Start Button
             start_button.disabled = matching_count == 0
             start_button.bgcolor = ft.Colors.INDIGO_700 if matching_count > 0 else ft.Colors.GREY_400
-            start_btn_label.value = f"Start Learning Session ({effective_count} words)" if matching_count > 0 else "Select Words to Start"
+            words_suffix = f"{matching_count} word{'s' if matching_count != 1 else ''}"
+            start_btn_label.value = f"Start Flashcards ({words_suffix})" if matching_count > 0 else "Select Words to Start"
 
             self.page.update()
 
@@ -609,8 +557,8 @@ class LearningView:
                                     ft.Icon(ft.Icons.STYLE, color=ft.Colors.INDIGO_700, size=24),
                                     ft.Column(
                                         [
-                                            ft.Text("Flashcard Plates Learning Setup", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.INDIGO_900),
-                                            ft.Text("Filter by CEFR levels or parts of speech, then start active recall practice with Quizlet turning plates.", size=12, color=ft.Colors.GREY_700),
+                                            ft.Text("Flashcards Setup", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.INDIGO_900),
+                                            ft.Text("Filter by CEFR levels or parts of speech, then start active recall practice with flashcards.", size=12, color=ft.Colors.GREY_700),
                                         ],
                                         spacing=2,
                                     ),
@@ -635,48 +583,22 @@ class LearningView:
                             ft.Row(
                                 [
                                     ft.Text("1. CEFR Level Filter:", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
-                                    ft.Row(
-                                        [
-                                            ft.TextButton("All Levels", on_click=select_all_levels, style=ft.ButtonStyle(padding=0)),
-                                            ft.Text("•", color=ft.Colors.GREY_400),
-                                            ft.TextButton("Clear", on_click=clear_levels, style=ft.ButtonStyle(padding=0)),
-                                        ],
-                                        spacing=6,
-                                    ),
+                                    level_chips_row,
                                 ],
                                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
                             ),
-                            level_chips_row,
+                            ft.Divider(height=1, color=ft.Colors.INDIGO_100),
 
                             # 2. Parts of Speech section
                             ft.Row(
                                 [
                                     ft.Text("2. Part of Speech (POS) Filter:", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
-                                    ft.Row(
-                                        [
-                                            ft.TextButton("All POS", on_click=select_all_pos, style=ft.ButtonStyle(padding=0)),
-                                            ft.Text("•", color=ft.Colors.GREY_400),
-                                            ft.TextButton("Clear", on_click=clear_pos, style=ft.ButtonStyle(padding=0)),
-                                        ],
-                                        spacing=6,
-                                    ),
-                                ],
-                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                            ),
-                            pos_chips_row,
-
-                            # 3. Words per session (Adaptive)
-                            ft.Row(
-                                [
-                                    ft.Text("3. Words per session:", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
-                                    count_chips_row,
+                                    pos_chips_row,
                                 ],
                                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                             ),
-
-                            # Dynamic matching feedback banner
-                            summary_banner_container,
 
                             # Start button
                             start_button,
@@ -716,7 +638,7 @@ class LearningView:
                 icon_size=24,
                 icon_color=ft.Colors.INDIGO_900 if not is_first else ft.Colors.GREY_400,
                 disabled=is_first,
-                tooltip="Previous Plate (← Left Arrow)",
+                tooltip="Previous Card (← Left Arrow)",
                 on_click=lambda e: self.prev_plate(),
             ),
             bgcolor=ft.Colors.WHITE if not is_first else ft.Colors.GREY_100,
@@ -740,7 +662,7 @@ class LearningView:
                 icon=ft.Icons.CHECK_ROUNDED if is_last else ft.Icons.ARROW_FORWARD_IOS_ROUNDED,
                 icon_size=24,
                 icon_color=ft.Colors.WHITE if is_last else ft.Colors.INDIGO_900,
-                tooltip="Finish Session" if is_last else "Next Plate (→ Right Arrow)",
+                tooltip="Finish Session" if is_last else "Next Card (→ Right Arrow)",
                 on_click=lambda e: self.next_plate(),
             ),
             bgcolor=ft.Colors.GREEN_700 if is_last else ft.Colors.WHITE,
@@ -769,7 +691,7 @@ class LearningView:
 
         counter_badge = ft.Container(
             content=ft.Text(
-                f"Plate {self.current_plate_idx + 1} / {total_cards}",
+                f"Card {self.current_plate_idx + 1} / {total_cards}",
                 weight=ft.FontWeight.BOLD,
                 size=13,
                 color=ft.Colors.INDIGO_900,
@@ -796,15 +718,9 @@ class LearningView:
                                     on_click=lambda e: self.shuffle_current_deck(),
                                 ),
                                 ft.IconButton(
-                                    icon=ft.Icons.REFRESH,
+                                    icon=ft.Icons.CLOSE_ROUNDED,
                                     icon_color=ft.Colors.INDIGO_700,
-                                    tooltip="Restart from Beginning",
-                                    on_click=lambda e: self.restart_learning_session(),
-                                ),
-                                ft.IconButton(
-                                    icon=ft.Icons.TUNE,
-                                    icon_color=ft.Colors.INDIGO_700,
-                                    tooltip="Configure Filters / Settings",
+                                    tooltip="Quit",
                                     on_click=lambda e: self.exit_learning_to_config(),
                                 ),
                             ],
@@ -896,8 +812,8 @@ class LearningView:
                                 on_click=lambda e: self.shuffle_and_restart(),
                             ),
                             ft.OutlinedButton(
-                                "New Session Setup",
-                                icon=ft.Icons.TUNE,
+                                "Quit",
+                                icon=ft.Icons.CLOSE_ROUNDED,
                                 on_click=lambda e: self.exit_learning_to_config(),
                             ),
                         ],
