@@ -10,6 +10,10 @@ from .colors import (
     get_level_color,
 )
 from .dimensions import (
+    WINDOW_WIDTH,
+    WINDOW_HEIGHT,
+    WINDOW_MIN_WIDTH,
+    WINDOW_MIN_HEIGHT,
     PLATE_WIDTH,
     PLATE_HEIGHT,
     PLATE_BORDER_RADIUS,
@@ -26,6 +30,10 @@ __all__ = [
     "POS_BADGE_COLOR",
     "GUIDEWORD_BADGE_COLOR",
     "get_level_color",
+    "WINDOW_WIDTH",
+    "WINDOW_HEIGHT",
+    "WINDOW_MIN_WIDTH",
+    "WINDOW_MIN_HEIGHT",
     "PLATE_WIDTH",
     "PLATE_HEIGHT",
     "PLATE_BORDER_RADIUS",

@@ -20,6 +20,12 @@ import flet as ft
 from modules.db.repository import WordRepository
 
 from ui.components import build_tag_faq
+from ui.theme import (
+    WINDOW_WIDTH,
+    WINDOW_HEIGHT,
+    WINDOW_MIN_WIDTH,
+    WINDOW_MIN_HEIGHT,
+)
 from ui.views import SearchView, DictionaryView, LearningView
 
 
@@ -28,6 +34,16 @@ def main(page: ft.Page):
     page.title = "Language Learning App"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 16
+
+    # Desktop window configuration: centered at start with minimum constraints
+    page.window.width = WINDOW_WIDTH
+    page.window.height = WINDOW_HEIGHT
+    page.window.min_width = WINDOW_MIN_WIDTH
+    page.window.min_height = WINDOW_MIN_HEIGHT
+    page.window.resizable = True
+    page.window.maximizable = True
+    page.window.alignment = ft.Alignment.CENTER
+    page.run_task(page.window.center)
 
     # Repository
     repo = WordRepository()

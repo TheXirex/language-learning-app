@@ -4,6 +4,12 @@ Layout sizing, border radii, padding, and shadow tokens.
 
 import flet as ft
 
+# Desktop Window Sizing
+WINDOW_WIDTH = 900
+WINDOW_HEIGHT = 750
+WINDOW_MIN_WIDTH = 780
+WINDOW_MIN_HEIGHT = 600
+
 # Plate Card Sizing & Appearance
 PLATE_WIDTH = 580
 PLATE_HEIGHT = 350
